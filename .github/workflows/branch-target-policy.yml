@@ -15,8 +15,8 @@ jobs:
           set -euo pipefail
 
           # Prefer event payload refs (most reliable)
-          SRC_RAW="${{ github.event.pull_request.head.ref || '' }}"
-          BASE_RAW="${{ github.event.pull_request.base.ref || '' }}"
+          SRC_RAW="${{ github.event.pull_request.head.ref }}"
+          BASE_RAW="${{ github.event.pull_request.base.ref }}"
 
           # Fallback to github.head_ref / github.base_ref if needed (defensive)
           if [ -z "$SRC_RAW" ]; then
