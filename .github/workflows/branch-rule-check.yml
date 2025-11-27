@@ -8,45 +8,35 @@ jobs:
   validate-branch-target:
     runs-on: ubuntu-latest
     steps:
-      - name: Print PR refs
+      - name: Debug PR refs
         run: |
-          echo "PR source: ${{ github.head_ref }}"
-          echo "PR base:   ${{ github.base_ref }}"
+          SRC="${{ github.event.pull_request.head.ref }}"
+          BASE="${{ github.event.pull_request.base.ref }}"
+          echo "Computed SRC: '$SRC'"
+          echo "Computed BASE: '$BASE'"
 
-      - name: Enforce branch target policy
-        run: |
-          SRC="${{ github.head_ref }}"
-          BASE="${{ github.base_ref }}"
-
-          # If not a PR (defensive) allow
-          if [ -z "$SRC" ] || [ -z "$BASE" ]; then
-            echo "Not a PR with refs — skipping check."
-            exit 0
-          fi
-
-          # RULE A: main accepts only qa
+          # RULE → main accepts only qa
           if [[ "$BASE" == "main" && "$SRC" != "qa" ]]; then
-            echo "ERROR: main accepts only PRs from branch 'qa'. This PR source is: $SRC"
+            echo "ERROR: main accepts only PRs from 'qa'. Source: $SRC"
             exit 1
           fi
 
-          # RULE B: qa accepts only dev
+          # RULE → qa accepts only dev
           if [[ "$BASE" == "qa" && "$SRC" != "dev" ]]; then
-            echo "ERROR: qa accepts only PRs from branch 'dev'. This PR source is: $SRC"
+            echo "ERROR: qa accepts only PRs from 'dev'. Source: $SRC"
             exit 1
           fi
 
-          # RULE C: dev accepts only int_dev
+          # RULE → dev accepts only int_dev
           if [[ "$BASE" == "dev" && "$SRC" != "int_dev" ]]; then
-            echo "ERROR: dev accepts only PRs from branch 'int_dev'. This PR source is: $SRC"
+            echo "ERROR: dev accepts only PRs from 'int_dev'. Source: $SRC"
             exit 1
           fi
 
-          # RULE D: TOPOS-* must only target int_dev
+          # RULE → TOPOS-* must target int_dev
           if [[ "$SRC" == TOPOS-* && "$BASE" != "int_dev" ]]; then
-            echo "ERROR: Branches starting with 'TOPOS-' must target 'int_dev' only. This PR targets: $BASE"
+            echo "ERROR: TOPOS-* must target 'int_dev'. Source: $SRC Target: $BASE"
             exit 1
           fi
 
-          # If you reach here, allowed
-          echo "OK: Branch target policy passed."
+          echo "OK: branch-target-policy passed."
