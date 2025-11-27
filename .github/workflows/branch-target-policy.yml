@@ -1,0 +1,68 @@
+name: branch-target-policy
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  validate-branch-target:
+    name: validate-branch-target
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug & enforce branch target policy
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Prefer event payload refs (most reliable)
+          SRC_RAW="${{ github.event.pull_request.head.ref || '' }}"
+          BASE_RAW="${{ github.event.pull_request.base.ref || '' }}"
+
+          # Fallback to github.head_ref / github.base_ref if needed (defensive)
+          if [ -z "$SRC_RAW" ]; then
+            SRC_RAW="${{ github.head_ref || '' }}"
+          fi
+          if [ -z "$BASE_RAW" ]; then
+            BASE_RAW="${{ github.base_ref || '' }}"
+          fi
+
+          # Normalize and trim
+          SRC="$(echo -n "$SRC_RAW" | tr -d '\r')"
+          BASE="$(echo -n "$BASE_RAW" | tr -d '\r')"
+
+          echo "Computed SRC: '$SRC'"
+          echo "Computed BASE: '$BASE'"
+          echo "PR number: ${{ github.event.pull_request.number || 'N/A' }}"
+          echo "Repository: $GITHUB_REPOSITORY"
+
+          # Defensive: if either is empty, fail so the ruleset won't be bypassed silently
+          if [ -z "$SRC" ] || [ -z "$BASE" ]; then
+            echo "ERROR: Could not determine PR source or base branch. SRC or BASE empty."
+            exit 1
+          fi
+
+          # RULE A: main accepts only qa
+          if [[ "$BASE" == "main" && "$SRC" != "qa" ]]; then
+            echo "ERROR: 'main' accepts only PRs from branch 'qa'. Source: $SRC"
+            exit 1
+          fi
+
+          # RULE B: qa accepts only dev
+          if [[ "$BASE" == "qa" && "$SRC" != "dev" ]]; then
+            echo "ERROR: 'qa' accepts only PRs from branch 'dev'. Source: $SRC"
+            exit 1
+          fi
+
+          # RULE C: dev accepts only int_dev
+          if [[ "$BASE" == "dev" && "$SRC" != "int_dev" ]]; then
+            echo "ERROR: 'dev' accepts only PRs from branch 'int_dev'. Source: $SRC"
+            exit 1
+          fi
+
+          # RULE D: TOPOS-* must only target int_dev
+          if [[ "$SRC" == TOPOS-* && "$BASE" != "int_dev" ]]; then
+            echo "ERROR: Branches starting with 'TOPOS-' must target 'int_dev' only. Source: $SRC Target: $BASE"
+            exit 1
+          fi
+
+          echo "OK: branch-target-policy passed."
